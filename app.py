@@ -441,13 +441,28 @@ def download_raw(file_id):
         return send_file(f[0], as_attachment=True)
     return "Unauthorized", 403
 
-@app.route('/super-admin')
+@app.route('/super-admin', methods=['GET', 'POST'])
 def super_admin():
     if 'user_id' not in session or session['role'] != 'admin':
         return redirect(url_for('login'))
         
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
+    
+    msg = ""
+    if request.method == 'POST' and 'create_shop' in request.form:
+        s_name = request.form['shop_name']
+        s_user = request.form['username']
+        s_pass = generate_password_hash(request.form['password'])
+        s_upi = request.form['upi_id']
+        try:
+            cursor.execute("INSERT INTO users (username, password, shop_name, upi_id, role, is_locked, is_paid) VALUES (?, ?, ?, ?, 'owner', 0, 1)",
+                           (s_user, s_pass, s_name, s_upi))
+            conn.commit()
+            msg = "✅ दुकान की ID सफलतापूर्वक बन गई!"
+        except sqlite3.IntegrityError:
+            msg = "❌ यह यूजरनेम पहले से मौजूद है!"
+
     cursor.execute("SELECT id, username, shop_name, is_locked, is_paid FROM users WHERE role = 'owner'")
     owners = cursor.fetchall()
     conn.close()
@@ -457,7 +472,7 @@ def super_admin():
         act_status = '<span style="color:green; font-weight: bold;">Paid / Active</span>' if owner[4] == 1 else '<span style="color:orange; font-weight: bold;">Unpaid / Pending</span>'
         lock_status = '<span style="color:red; font-weight: bold;">Locked</span>' if owner[3] == 1 else '<span style="color:green; font-weight: bold;">Active</span>'
         lock_action = f'<a href="/toggle-lock/{owner[0]}" style="color: #28a745; font-weight: bold; text-decoration: none;">🔓 Unlock</a>' if owner[3] == 1 else f'<a href="/toggle-lock/{owner[0]}" style="color: #dc3545; font-weight: bold; text-decoration: none;">🔒 Lock</a>'
-        make_free_action = f' | <a href="/make-paid/{owner[0]}" style="color: #28a745; font-weight: bold; text-decoration: none;">✨ Make Free (Active)</a>' if owner[4] == 0 else ''
+        make_free_action = f' | <a href="/make-paid/{owner[0]}" style="color: #28a745; font-weight: bold; text-decoration: none;">✨ Make Active</a>' if owner[4] == 0 else ''
         
         owners_html += f'''
             <tr>
@@ -469,6 +484,10 @@ def super_admin():
                 <td>{lock_action}{make_free_action}</td>
             </tr>
         '''
+    if not owners:
+        owners_html = '<tr><td colspan="6" style="text-align: center; color: #777;">अभी कोई दुकान रजिस्टर्ड नहीं है। नीचे दिए गए फॉर्म से नई दुकान जोड़ें।</td></tr>'
+
+    msg_html = f'<p style="background: #e6f4ea; color: #137333; padding: 10px; border-radius: 6px; font-weight: bold;">{msg}</p>' if msg else ''
 
     return f'''
         <!DOCTYPE html>
@@ -486,14 +505,36 @@ def super_admin():
                 table {{ width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }}
                 th, td {{ border: 1px solid #dee2e6; padding: 12px; text-align: left; }}
                 th {{ background: #f1f3f5; }}
+                .form-box {{ background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }}
+                .form-box input {{ padding: 10px; margin: 5px 0 15px 0; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }}
+                .form-box button {{ background: #28a745; color: white; border: none; padding: 10px 20px; font-weight: bold; border-radius: 6px; cursor: pointer; }}
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>👑 Master Super Admin Control Panel (Profit & Shops)</h1>
+                    <h1>👑 Master Super Admin Control Panel</h1>
                     <a href="/logout" class="logout">लॉग आउट</a>
                 </div>
+                
+                {msg_html}
+
+                <div class="form-box">
+                    <h3>➕ नई दुकान (Shopkeeper) की ID डायरेक्ट बनाएं:</h3>
+                    <form method="POST">
+                        <label>दुकान का नाम:</label>
+                        <input type="text" name="shop_name" placeholder="उदा: प्रज्ञा केंद्र हीहल" required>
+                        <label>दुकान की UPI ID:</label>
+                        <input type="text" name="upi_id" placeholder="उदा: dukan@okaxis" required>
+                        <label>यूजरनेम:</label>
+                        <input type="text" name="username" placeholder="उदा: shop123" required>
+                        <label>पासवर्ड:</label>
+                        <input type="password" name="password" required>
+                        <button type="submit" name="create_shop" value="1">दुकान की ID बनाएँ (Free Active)</button>
+                    </form>
+                </div>
+
+                <h3>📋 सभी प्रज्ञा केंद्र (Shops) की सूची:</h3>
                 <table>
                     <tr><th>ID</th><th>दुकान का नाम</th><th>यूजरनेम</th><th>एक्टिवेशन स्टेटस</th><th>लॉक स्टेटस</th><th>एक्शन</th></tr>
                     {owners_html}

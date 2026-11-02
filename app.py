@@ -72,7 +72,7 @@ init_db()
 
 @app.route('/')
 def home():
-    return '''
+    return render_template_string('''
         <!DOCTYPE html>
         <html lang="hi">
         <head>
@@ -101,7 +101,7 @@ def home():
             </div>
         </body>
         </html>
-    '''
+    ''')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -124,8 +124,7 @@ def register():
             error = "Username already exists! Choose another."
             conn.close()
             
-    err_html = f'<p class="error">{error}</p>' if error else ''
-    return f'''
+    return render_template_string('''
         <!DOCTYPE html>
         <html lang="hi">
         <head>
@@ -133,20 +132,20 @@ def register():
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Register - Pragya Kendra</title>
             <style>
-                body {{ font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 30px 15px; margin: 0; }}
-                .form-card {{ background: white; max-width: 420px; margin: 0 auto; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }}
-                h2 {{ color: #333; text-align: center; margin-top: 0; }}
-                label {{ font-weight: 600; color: #444; font-size: 14px; display: block; margin-top: 15px; }}
-                input {{ width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 15px; }}
-                button {{ width: 100%; margin-top: 20px; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }}
-                .back {{ display: block; text-align: center; margin-top: 15px; color: #0066ff; text-decoration: none; font-size: 14px; }}
-                .error {{ color: red; text-align: center; font-size: 14px; }}
+                body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 30px 15px; margin: 0; }
+                .form-card { background: white; max-width: 420px; margin: 0 auto; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+                h2 { color: #333; text-align: center; margin-top: 0; }
+                label { font-weight: 600; color: #444; font-size: 14px; display: block; margin-top: 15px; }
+                input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+                button { width: 100%; margin-top: 20px; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+                .back { display: block; text-align: center; margin-top: 15px; color: #0066ff; text-decoration: none; font-size: 14px; }
+                .error { color: red; text-align: center; font-size: 14px; }
             </style>
         </head>
         <body>
             <div class="form-card">
                 <h2>📝 नया प्रज्ञा केंद्र रजिस्टर करें</h2>
-                {err_html}
+                {% if error %}<p class="error">{{ error }}</p>{% endif %}
                 <form method="POST">
                     <label>दुकान का नाम (Shop Name):</label>
                     <input type="text" name="shop_name" required>
@@ -162,7 +161,7 @@ def register():
             </div>
         </body>
         </html>
-    '''
+    ''', error=error)
 
 @app.route('/payment-gateway/<uname>', methods=['GET', 'POST'])
 def payment_gateway(uname):
@@ -174,16 +173,16 @@ def payment_gateway(uname):
         conn.close()
         return redirect(url_for('login'))
         
-    return f'''
+    return render_template_string('''
         <!DOCTYPE html>
         <html lang="hi">
         <head>
             <meta charset="UTF-8">
             <title>Activation Payment</title>
             <style>
-                body {{ font-family: 'Segoe UI', sans-serif; background: #f0f2f5; text-align: center; padding: 40px; }}
-                .card {{ background: white; max-width: 400px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }}
-                .btn {{ display: inline-block; margin-top: 20px; padding: 12px 25px; background: #28a745; color: white; border-radius: 8px; text-decoration: none; font-weight: bold; cursor: pointer; border: none; }}
+                body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; text-align: center; padding: 40px; }
+                .card { background: white; max-width: 400px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+                .btn { display: inline-block; margin-top: 20px; padding: 12px 25px; background: #28a745; color: white; border-radius: 8px; text-decoration: none; font-weight: bold; cursor: pointer; border: none; }
             </style>
         </head>
         <body>
@@ -198,7 +197,7 @@ def payment_gateway(uname):
             </div>
         </body>
         </html>
-    '''
+    ''', uname=uname)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -230,8 +229,7 @@ def login():
         else:
             error = "गलत यूजरनेम या पासवर्ड!"
             
-    err_html = f'<p class="error">{error}</p>' if error else ''
-    return f'''
+    return render_template_string('''
         <!DOCTYPE html>
         <html lang="hi">
         <head>
@@ -239,7 +237,271 @@ def login():
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Login - Kiosk System</title>
             <style>
-                body {{ font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 40px 15px; margin: 0; }}
-                .form-card {{ background: white; max-width: 400px; margin: 0 auto; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }}
-                h2 {{ color: #333; text-align: center; margin-top: 0; }}
-                label {{ font-weight: 600; color: #444; font-size: 14px; display: block; margin-top: 15px;
+                body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 40px 15px; margin: 0; }
+                .form-card { background: white; max-width: 400px; margin: 0 auto; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+                h2 { color: #333; text-align: center; margin-top: 0; }
+                label { font-weight: 600; color: #444; font-size: 14px; display: block; margin-top: 15px; }
+                input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+                button { width: 100%; margin-top: 20px; padding: 12px; background: #0066ff; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+                .back { display: block; text-align: center; margin-top: 15px; color: #0066ff; text-decoration: none; font-size: 14px; }
+                .error { color: red; text-align: center; font-size: 14px; }
+            </style>
+        </head>
+        <body>
+            <div class="form-card">
+                <h2>🔐 कियोस्क लॉगिन</h2>
+                {% if error %}<p class="error">{{ error }}</p>{% endif %}
+                <form method="POST">
+                    <label>यूजरनेम:</label>
+                    <input type="text" name="username" required>
+                    <label>पासवर्ड:</label>
+                    <input type="password" name="password" required>
+                    <button type="submit">लॉगिन करें</button>
+                </form>
+                <a href="/" class="back">← होम पेज पर वापस जाएं</a>
+            </div>
+        </body>
+        </html>
+    ''', error=error)
+
+@app.route('/dashboard', methods=['GET', 'POST'])
+def dashboard():
+    if 'user_id' not in session or session['role'] != 'owner':
+        return redirect(url_for('login'))
+    
+    owner_id = session['user_id']
+    shop_name = session['shop_name']
+    
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    if request.method == 'POST' and 'update_upi' in request.form:
+        new_upi = request.form['upi_id']
+        cursor.execute("UPDATE users SET upi_id = ? WHERE id = ?", (new_upi, owner_id))
+        conn.commit()
+        
+    cursor.execute("SELECT upi_id FROM users WHERE id = ?", (owner_id,))
+    upi_row = cursor.fetchone()
+    upi_id = upi_row[0] if upi_row else 'shop@upi'
+    
+    cursor.execute("SELECT id, filename, color_mode, side_mode, pages, copies, total_price, pay_method, payment_status, timestamp FROM files WHERE owner_id = ? ORDER BY id DESC", (owner_id,))
+    files = cursor.fetchall()
+    conn.close()
+    
+    upload_link = request.host_url + f"upload/{owner_id}"
+    
+    return render_template_string('''
+        <!DOCTYPE html>
+        <html lang="hi">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{{ shop_name }} - Dashboard</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; background: #f8f9fa; padding: 20px; margin: 0; }
+                .container { max-width: 1050px; margin: 0 auto; background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+                h2, h3 { color: #333; margin-top: 0; }
+                .logout { background: #dc3545; color: white; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; }
+                input[type="text"] { padding: 8px; width: 300px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+                button { padding: 8px 15px; background: #0066ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+                th, td { border: 1px solid #dee2e6; padding: 10px; text-align: left; }
+                th { background: #f1f3f5; color: #333; }
+                .badge-verified { color: #28a745; font-weight: bold; }
+                .badge-pending { color: #e67e22; font-weight: bold; }
+                .print-btn { display: inline-block; padding: 6px 12px; background: #28a745; color: white; border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: bold; }
+                .approve-btn { display: inline-block; padding: 6px 12px; background: #ffc107; color: #000; border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h2>🖥️ {{ shop_name }} (डैशबोर्ड)</h2>
+                    <a href="/logout" class="logout">लॉग आउट</a>
+                </div>
+                
+                <h3>💳 दुकान की UPI ID सेटिंग:</h3>
+                <form method="POST">
+                    <input type="text" name="upi_id" value="{{ upi_id }}" required>
+                    <button type="submit" name="update_upi" value="1">अपडेट करें</button>
+                </form>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                
+                <h3>📱 ग्राहक QR कोड और लिंक:</h3>
+                <input type="text" value="{{ upload_link }}" style="width: 450px;" readonly>
+                <p><a href="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ upload_link }}" target="_blank" style="color: #0066ff; font-weight: bold;">🔗 QR कोड देखें</a></p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                
+                <h3>📥 ग्राहकों के प्रिंट ऑर्डर लिस्ट:</h3>
+                <table>
+                    <tr>
+                        <th>ID</th>
+                        <th>फाइल का नाम</th>
+                        <th>प्रिंट सेटिंग्स</th>
+                        <th>मोड</th>
+                        <th>कुल बिल</th>
+                        <th>स्टेटस</th>
+                        <th>प्रिंट / एक्शन</th>
+                    </tr>
+                    {% for f in files %}
+                    <tr>
+                        <td>{{ f[0] }}</td>
+                        <td>{{ f[1] }}</td>
+                        <td>{{ f[2]|upper }} | {{ f[3]|replace('_', ' ')|title }} | P: {{ f[4] }} | C: {{ f[5] }}</td>
+                        <td><b>{{ f[7]|upper }}</b></td>
+                        <td><b>₹{{ f[6] }}</b></td>
+                        <td>
+                            {% if f[8] == 'Verified' %}
+                                <span class="badge-verified">✓ Approved</span>
+                            {% else %}
+                                <span class="badge-pending">⌛ Pending Approval</span><br>
+                                <a href="/approve-order/{{ f[0] }}" class="approve-btn">✅ Approve Order</a>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if f[8] == 'Verified' %}
+                                <a href="/print-file/{{ f[0] }}" target="_blank" class="print-btn">🖨️ प्रिंट करें</a>
+                            {% else %}
+                                <span style="color: #888; font-size: 12px;">Waiting Approval</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                        <tr><td colspan="7" style="text-align: center; color: #777;">अभी तक कोई आर्डर नहीं आया है।</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </body>
+        </html>
+    ''', shop_name=shop_name, files=files, upload_link=upload_link, upi_id=upi_id)
+
+@app.route('/approve-order/<int:file_id>')
+def approve_order(file_id):
+    if 'user_id' not in session or session['role'] != 'owner':
+        return redirect(url_for('login'))
+        
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("UPDATE files SET payment_status = 'Verified' WHERE id = ? AND owner_id = ?", (file_id, session['user_id']))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('dashboard'))
+
+@app.route('/print-file/<int:file_id>')
+def print_file(file_id):
+    if 'user_id' not in session or session['role'] != 'owner':
+        return redirect(url_for('login'))
+        
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT filename, filepath, owner_id, payment_status FROM files WHERE id = ?", (file_id,))
+    f = cursor.fetchone()
+    conn.close()
+    
+    if f and f[2] == session['user_id']:
+        if f[3] != 'Verified':
+            return "<h3>ऑर्डर अभी अप्रूव नहीं हुआ है!</h3>", 403
+        
+        # Direct customer file download/view for instant printing
+        return send_file(f[1], as_attachment=False)
+        
+    return "Unauthorized", 403
+
+@app.route('/download-raw/<int:file_id>')
+def download_raw(file_id):
+    if 'user_id' not in session or session['role'] != 'owner':
+        return redirect(url_for('login'))
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT filepath, owner_id FROM files WHERE id = ?", (file_id,))
+    f = cursor.fetchone()
+    conn.close()
+    if f and f[1] == session['user_id']:
+        return send_file(f[0], as_attachment=True)
+    return "Unauthorized", 403
+
+@app.route('/super-admin', methods=['GET', 'POST'])
+def super_admin():
+    if 'user_id' not in session or session['role'] != 'admin':
+        return redirect(url_for('login'))
+        
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    msg = ""
+    if request.method == 'POST' and 'create_shop' in request.form:
+        s_name = request.form['shop_name']
+        s_user = request.form['username']
+        s_pass = generate_password_hash(request.form['password'])
+        s_upi = request.form['upi_id']
+        try:
+            cursor.execute("INSERT INTO users (username, password, shop_name, upi_id, role, is_locked, is_paid) VALUES (?, ?, ?, ?, 'owner', 0, 1)",
+                           (s_user, s_pass, s_name, s_upi))
+            conn.commit()
+            msg = "✅ दुकान की ID सफलतापूर्वक बन गई!"
+        except sqlite3.IntegrityError:
+            msg = "❌ यह यूजरनेम पहले से मौजूद है!"
+
+    cursor.execute("SELECT id, username, shop_name, is_locked, is_paid FROM users WHERE role = 'owner'")
+    owners = cursor.fetchall()
+    conn.close()
+    
+    return render_template_string('''
+        <!DOCTYPE html>
+        <html lang="hi">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Master Admin Control Panel</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; margin: 0; }
+                .container { max-width: 950px; margin: 0 auto; background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+                h1 { color: #333; font-size: 22px; margin: 0; }
+                .logout { background: #dc3545; color: white; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+                th, td { border: 1px solid #dee2e6; padding: 12px; text-align: left; }
+                th { background: #f1f3f5; }
+                .form-box { background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+                .form-box input { padding: 10px; margin: 5px 0 15px 0; width: 100%; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
+                .form-box button { background: #28a745; color: white; border: none; padding: 10px 20px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>👑 Master Super Admin Control Panel</h1>
+                    <a href="/logout" class="logout">लॉग आउट</a>
+                </div>
+                
+                {% if msg %}
+                    <p style="background: #e6f4ea; color: #137333; padding: 10px; border-radius: 6px; font-weight: bold;">{{ msg }}</p>
+                {% endif %}
+
+                <div class="form-box">
+                    <h3>➕ नई दुकान (Shopkeeper) की ID डायरेक्ट बनाएं:</h3>
+                    <form method="POST">
+                        <label>दुकान का नाम:</label>
+                        <input type="text" name="shop_name" placeholder="उदा: प्रज्ञा केंद्र हीहल" required>
+                        <label>दुकान की UPI ID:</label>
+                        <input type="text" name="upi_id" placeholder="उदा: dukan@okaxis" required>
+                        <label>यूजरनेम:</label>
+                        <input type="text" name="username" placeholder="उदा: shop123" required>
+                        <label>पासवर्ड:</label>
+                        <input type="password" name="password" required>
+                        <button type="submit" name="create_shop" value="1">दुकान की ID बनाएँ (Free Active)</button>
+                    </form>
+                </div>
+
+                <h3>📋 सभी प्रज्ञा केंद्र (Shops) की सूची:</h3>
+                <table>
+                    <tr><th>ID</th><th>दुकान का नाम</th><th>यूजरनेम</th><th>एक्टिवेशन स्टेटस</th><th>लॉक स्टेटस</th><th>एक्शन</th></tr>
+                    {% for owner in owners %}
+                    <tr>
+                        <td>{{ owner[0] }}</td>
+                        <td><b>{{ owner[2] }}</b></td>
+                        <td>{{ owner[1] }}</td>
+                        <td>{% if owner[4] == 1 %}<span style="color:green; font-weight: bold;">Paid / Active</span>{% else %}<span style="color:orange; font-weight: bold;">Unpaid / Pending</span>{% endif %}</td>
+                        <td>{% if owner[3] == 1 %}<span style="color:red; font-weight: bold;">Locked</span>{% else %}<span style="color:green; font-weight: bold;">Active</span>{% endif %}</td>
+                        <td>

@@ -1,0 +1,377 @@
+import os
+from flask import Flask, render_template_string, request, redirect, url_for, session, send_file
+import sqlite3
+from werkzeug.security import generate_password_hash, check_password_hash
+
+app = Flask(__name__)
+app.secret_key = 'super_secret_master_key_change_this'
+
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['ALLOWED_EXTENSIONS'] = {'pdf', 'png', 'jpg', 'jpeg', 'docx'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+def init_db():
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            shop_name TEXT NOT NULL,
+            upi_id TEXT DEFAULT 'shop@upi',
+            role TEXT NOT NULL, 
+            is_locked INTEGER DEFAULT 0,
+            is_paid INTEGER DEFAULT 0
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner_id INTEGER,
+            filename TEXT NOT NULL,
+            filepath TEXT NOT NULL,
+            color_mode TEXT,
+            side_mode TEXT,
+            pages INTEGER,
+            copies INTEGER,
+            total_price INTEGER,
+            pay_method TEXT,
+            payment_status TEXT DEFAULT 'Pending',
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(owner_id) REFERENCES users(id)
+        )
+    ''')
+    
+    conn.commit()
+    
+    cursor.execute("SELECT * FROM users WHERE role = 'admin'")
+    admin_user = cursor.fetchone()
+    
+    new_admin_user = 'VS119'
+    new_admin_pass = generate_password_hash('Vs@787800')
+    
+    if not admin_user:
+        cursor.execute("INSERT INTO users (username, password, shop_name, role, is_locked, is_paid) VALUES (?, ?, ?, 'admin', 0, 1)",
+                       (new_admin_user, new_admin_pass, 'Master Admin Panel'))
+        conn.commit()
+    else:
+        cursor.execute("UPDATE users SET username = ?, password = ? WHERE role = 'admin'", 
+                       (new_admin_user, new_admin_pass))
+        conn.commit()
+    
+    conn.close()
+
+init_db()
+
+@app.route('/')
+def home():
+    return render_template_string('''
+        <!DOCTYPE html>
+        <html lang="hi">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Pragya Kendra Print Kiosk Platform</title>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; text-align: center; padding: 40px 20px; margin: 0; }
+                .card { background: white; max-width: 450px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); text-align: left; }
+                h1 { color: #1a1a1a; font-size: 24px; text-align: center; margin-bottom: 5px; }
+                p.sub { color: #666; font-size: 14px; text-align: center; margin-bottom: 25px; }
+                .btn { display: block; width: 100%; box-sizing: border-box; text-align: center; margin: 12px 0; padding: 12px; background: #0066ff; color: white; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; transition: 0.2s; }
+                .btn:hover { background: #0052cc; }
+                .btn.admin { background: #dc3545; }
+                .btn.admin:hover { background: #c82333; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>🖨️ Pragya Kendra Print</h1>
+                <p class="sub">Digital Self-Service Kiosk SaaS</p>
+                <a href="/login" class="btn">Shop Owner Login</a>
+                <a href="/register" class="btn" style="background: #28a745;">Self Register (Paid ID)</a>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                <a href="/login" class="btn admin">Master Admin Login</a>
+            </div>
+        </body>
+        </html>
+    ''')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    error = None
+    if request.method == 'POST':
+        username = request.form['username']
+        password = generate_password_hash(request.form['password'])
+        shop_name = request.form['shop_name']
+        upi_id = request.form['upi_id']
+        
+        conn = sqlite3.connect('database.db')
+        cursor = conn.cursor()
+        try:
+            cursor.execute("INSERT INTO users (username, password, shop_name, upi_id, role, is_locked, is_paid) VALUES (?, ?, ?, ?, 'owner', 0, 0)",
+                           (username, password, shop_name, upi_id))
+            conn.commit()
+            conn.close()
+            return redirect(url_for('payment_gateway', uname=username))
+        except sqlite3.IntegrityError:
+            error = "Username already exists! Choose another."
+            conn.close()
+            
+    return render_template_string('''
+        <!DOCTYPE html>
+        <html lang="hi">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Register - Pragya Kendra</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 30px 15px; margin: 0; }
+                .form-card { background: white; max-width: 420px; margin: 0 auto; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+                h2 { color: #333; text-align: center; margin-top: 0; }
+                label { font-weight: 600; color: #444; font-size: 14px; display: block; margin-top: 15px; }
+                input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+                button { width: 100%; margin-top: 20px; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+                .back { display: block; text-align: center; margin-top: 15px; color: #0066ff; text-decoration: none; font-size: 14px; }
+                .error { color: red; text-align: center; font-size: 14px; }
+            </style>
+        </head>
+        <body>
+            <div class="form-card">
+                <h2>📝 नया प्रज्ञा केंद्र रजिस्टर करें</h2>
+                {% if error %}<p class="error">{{ error }}</p>{% endif %}
+                <form method="POST">
+                    <label>दुकान का नाम (Shop Name):</label>
+                    <input type="text" name="shop_name" required>
+                    <label>दुकान की UPI ID:</label>
+                    <input type="text" name="upi_id" placeholder="jaise: dukaan@ybl" required>
+                    <label>यूजरनेम:</label>
+                    <input type="text" name="username" required>
+                    <label>पासवर्ड:</label>
+                    <input type="password" name="password" required>
+                    <button type="submit">रजिस्टर करें & पेमेंट आगे बढ़ाएं</button>
+                </form>
+                <a href="/" class="back">← होम पेज पर वापस जाएं</a>
+            </div>
+        </body>
+        </html>
+    ''', error=error)
+
+@app.route('/payment-gateway/<uname>', methods=['GET', 'POST'])
+def payment_gateway(uname):
+    if request.method == 'POST':
+        conn = sqlite3.connect('database.db')
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET is_paid = 1 WHERE username = ?", (uname,))
+        conn.commit()
+        conn.close()
+        return redirect(url_for('login'))
+        
+    return render_template_string('''
+        <!DOCTYPE html>
+        <html lang="hi">
+        <head>
+            <meta charset="UTF-8">
+            <title>Activation Payment</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; text-align: center; padding: 40px; }
+                .card { background: white; max-width: 400px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+                .btn { display: inline-block; margin-top: 20px; padding: 12px 25px; background: #28a745; color: white; border-radius: 8px; text-decoration: none; font-weight: bold; cursor: pointer; border: none; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h2>💳 सॉफ्टवेयर एक्टिवेशन फीस</h2>
+                <p>अपनी दुकान की ID एक्टिवेट करने के लिए ₹99 का ऑनलाइन भुगतान करें:</p>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=upi://pay?pa=admin@upi&pn=PlatformAdmin&am=99&cu=INR" alt="Admin QR" style="border-radius: 8px; border: 1px solid #ddd; margin: 15px 0;">
+                <p style="font-size: 13px; color: #666;">पेमेंट पूरा होने के बाद नीचे दिए गए बटन पर क्लिक करें:</p>
+                <form method="POST">
+                    <button type="submit" class="btn">✅ मैंने पेमेंट कर दिया है (Activate ID)</button>
+                </form>
+            </div>
+        </body>
+        </html>
+    ''', uname=uname)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        conn = sqlite3.connect('database.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, password, role, is_locked, shop_name, is_paid FROM users WHERE username = ?", (username,))
+        user = cursor.fetchone()
+        conn.close()
+        
+        if user and check_password_hash(user[1], password):
+            if user[3] == 1:
+                error = "आपका अकाउंट लॉक कर दिया गया है।"
+            elif user[2] == 'owner' and user[5] == 0:
+                return redirect(url_for('payment_gateway', uname=username))
+            else:
+                session['user_id'] = user[0]
+                session['role'] = user[2]
+                session['shop_name'] = user[4]
+                
+                if user[2] == 'admin':
+                    return redirect(url_for('super_admin'))
+                else:
+                    return redirect(url_for('dashboard'))
+        else:
+            error = "गलत यूजरनेम या पासवर्ड!"
+            
+    return render_template_string('''
+        <!DOCTYPE html>
+        <html lang="hi">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Login - Kiosk System</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 40px 15px; margin: 0; }
+                .form-card { background: white; max-width: 400px; margin: 0 auto; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+                h2 { color: #333; text-align: center; margin-top: 0; }
+                label { font-weight: 600; color: #444; font-size: 14px; display: block; margin-top: 15px; }
+                input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+                button { width: 100%; margin-top: 20px; padding: 12px; background: #0066ff; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+                .back { display: block; text-align: center; margin-top: 15px; color: #0066ff; text-decoration: none; font-size: 14px; }
+                .error { color: red; text-align: center; font-size: 14px; }
+            </style>
+        </head>
+        <body>
+            <div class="form-card">
+                <h2>🔐 कियोस्क लॉगिन</h2>
+                {% if error %}<p class="error">{{ error }}</p>{% endif %}
+                <form method="POST">
+                    <label>यूजरनेम:</label>
+                    <input type="text" name="username" required>
+                    <label>पासवर्ड:</label>
+                    <input type="password" name="password" required>
+                    <button type="submit">लॉगिन करें</button>
+                </form>
+                <a href="/" class="back">← होम पेज पर वापस जाएं</a>
+            </div>
+        </body>
+        </html>
+    ''', error=error)
+
+@app.route('/dashboard', methods=['GET', 'POST'])
+def dashboard():
+    if 'user_id' not in session or session['role'] != 'owner':
+        return redirect(url_for('login'))
+    
+    owner_id = session['user_id']
+    shop_name = session['shop_name']
+    
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    
+    if request.method == 'POST' and 'update_upi' in request.form:
+        new_upi = request.form['upi_id']
+        cursor.execute("UPDATE users SET upi_id = ? WHERE id = ?", (new_upi, owner_id))
+        conn.commit()
+        
+    cursor.execute("SELECT upi_id FROM users WHERE id = ?", (owner_id,))
+    upi_row = cursor.fetchone()
+    upi_id = upi_row[0] if upi_row else 'shop@upi'
+    
+    cursor.execute("SELECT id, filename, color_mode, side_mode, pages, copies, total_price, pay_method, payment_status, timestamp FROM files WHERE owner_id = ? ORDER BY id DESC", (owner_id,))
+    files = cursor.fetchall()
+    conn.close()
+    
+    upload_link = request.host_url + f"upload/{owner_id}"
+    
+    return render_template_string('''
+        <!DOCTYPE html>
+        <html lang="hi">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{{ shop_name }} - Dashboard</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; background: #f8f9fa; padding: 20px; margin: 0; }
+                .container { max-width: 1050px; margin: 0 auto; background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+                .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+                h2, h3 { color: #333; margin-top: 0; }
+                .logout { background: #dc3545; color: white; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; }
+                input[type="text"] { padding: 8px; width: 300px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+                button { padding: 8px 15px; background: #0066ff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+                th, td { border: 1px solid #dee2e6; padding: 10px; text-align: left; }
+                th { background: #f1f3f5; color: #333; }
+                .badge-verified { color: #28a745; font-weight: bold; }
+                .badge-pending { color: #e67e22; font-weight: bold; }
+                .print-btn { display: inline-block; padding: 6px 12px; background: #28a745; color: white; border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: bold; }
+                .approve-btn { display: inline-block; padding: 6px 12px; background: #ffc107; color: #000; border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h2>🖥️ {{ shop_name }} (डैशबोर्ड)</h2>
+                    <a href="/logout" class="logout">लॉग आउट</a>
+                </div>
+                
+                <h3>💳 दुकान की UPI ID सेटिंग:</h3>
+                <form method="POST">
+                    <input type="text" name="upi_id" value="{{ upi_id }}" required>
+                    <button type="submit" name="update_upi" value="1">अपडेट करें</button>
+                </form>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                
+                <h3>📱 ग्राहक QR कोड और लिंक:</h3>
+                <input type="text" value="{{ upload_link }}" style="width: 450px;" readonly>
+                <p><a href="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={{ upload_link }}" target="_blank" style="color: #0066ff; font-weight: bold;">🔗 QR कोड देखें</a></p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                
+                <h3>📥 ग्राहकों के प्रिंट ऑर्डर लिस्ट:</h3>
+                <table>
+                    <tr>
+                        <th>ID</th>
+                        <th>फाइल का नाम</th>
+                        <th>प्रिंट सेटिंग्स</th>
+                        <th>मोड</th>
+                        <th>कुल बिल</th>
+                        <th>स्टेटस</th>
+                        <th>प्रिंट / एक्शन</th>
+                    </tr>
+                    {% for f in files %}
+                    <tr>
+                        <td>{{ f[0] }}</td>
+                        <td>{{ f[1] }}</td>
+                        <td>{{ f[2]|upper }} | {{ f[3]|replace('_', ' ')|title }} | P: {{ f[4] }} | C: {{ f[5] }}</td>
+                        <td><b>{{ f[7]|upper }}</b></td>
+                        <td><b>₹{{ f[6] }}</b></td>
+                        <td>
+                            {% if f[8] == 'Verified' %}
+                                <span class="badge-verified">✓ Approved</span>
+                            {% else %}
+                                <span class="badge-pending">⌛ Pending Approval</span><br>
+                                <a href="/approve-order/{{ f[0] }}" class="approve-btn">✅ Approve Order</a>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if f[8] == 'Verified' %}
+                                <a href="/print-file/{{ f[0] }}" target="_blank" class="print-btn">🖨️ प्रिंट करें (Print)</a>
+                            {% else %}
+                                <span style="color: #888; font-size: 12px;">Waiting Approval</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                        <tr><td colspan="7" style="text-align: center; color: #777;">अभी तक कोई आर्डर नहीं आया है।</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </body>
+        </html>
+    ''', shop_name=shop_name, files=files, upload_

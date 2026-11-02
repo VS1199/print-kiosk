@@ -361,17 +361,3 @@ def dashboard():
                         </td>
                         <td>
                             {% if f[8] == 'Verified' %}
-                                <a href="/print-file/{{ f[0] }}" target="_blank" class="print-btn">🖨️ प्रिंट करें (Print)</a>
-                            {% else %}
-                                <span style="color: #888; font-size: 12px;">Waiting Approval</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                        <tr><td colspan="7" style="text-align: center; color: #777;">अभी तक कोई आर्डर नहीं आया है।</td></tr>
-                    {% endfor %}
-                </table>
-            </div>
-        </body>
-        </html>
-    ''', shop_name=shop_name, files=files, upload_
